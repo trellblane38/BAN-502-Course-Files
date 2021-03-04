@@ -1,0 +1,84 @@
+---
+title: "Module3Assign1"
+author: "Gregory Blane"
+date: "2/3/2021"
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+library(tidyverse)
+library(lubridate)
+library(tidymodels)
+```
+
+```{r}
+bike_cleaned_2 <- read_csv("bike_cleaned-2.csv")
+```
+
+```{r}
+bike = bike_cleaned_2 %>% mutate(dteday =mdy(dteday))
+bike = bike %>% mutate(season = as_factor(season))
+bike = bike %>% mutate(hr = as_factor(hr))
+bike = bike %>% mutate(mnth = as_factor(mnth))
+bike = bike %>% mutate(weekday = as_factor(weekday))
+bike = bike %>% mutate(holiday = as_factor(holiday))
+bike = bike %>% mutate(workingday = as_factor(workingday))
+bike = bike %>% mutate(weathersit = as_factor(weathersit))
+
+```
+
+```{r}
+set.seed(1234)
+bike_split = initial_split(bike, prob = 0.70, strata = count)
+train = training(bike_split)
+test = testing(bike_split)
+```
+
+
+#### There are 4343 obs in the test set and 13036 obs in the training set.
+
+
+```{r}
+bike_recipe = recipe(count ~ season + mnth + hr + holiday + weekday + temp + weathersit, train)
+
+lm_model = 
+  linear_reg() %>% 
+  set_engine("lm")  
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe)
+
+lm_fit = fit(lm_wflow, train)
+```
+
+
+####  The adjusted R-square value shows  0.6229, which indicates that the model is not a victim of overfitting.    
+```{r}
+summary(lm_fit$fit$fit$fit)
+```
+
+```{r}
+ lm_fit %>% predict(test) %>% bind_cols(test) %>% metrics(truth = count, estimate = .pred)
+Predict_train = predict(lm_fit, new_data = train)
+```
+
+
+```{r}
+ggplot(Predict_train, aes(x = .pred)) +
+  geom_histogram(bins = 30) +
+  theme_bw()
+```
+
+```{r}
+lm_fit2 = fit(lm_wflow, test)
+```
+
+```{r}
+summary(lm_fit2$fit$fit$fit)
+```
+
+#### The adjusted R-square value for test shows 0.623, which is relatively similar to the test set. 
+

@@ -1,0 +1,32 @@
+### Preparing Predictions for Kaggle
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+#You may, of course, need access to additional libraries. You can take of that
+```
+
+```{r}
+ames_competition = read_csv("ames_competition.csv")
+```
+
+
+```{r}
+kaggle_predictions = predict(final_blend, ames_competition)
+head(kaggle_predictions)
+```
+
+```{r}
+kaggle = ames_competition %>% select(X1) 
+
+kaggle = bind_cols(kaggle, kaggle_predictions)
+
+kaggle
+  
+```
+
+```{r}
+write.csv(kaggle, "kaggle_submit.csv", row.names=FALSE)
+```
+
+  

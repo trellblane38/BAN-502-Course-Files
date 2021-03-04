@@ -1,0 +1,114 @@
+---
+title: "Course Project Phase 1"
+author: "Gregory Blane"
+date: "2/22/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(dplyr)
+library(ranger)
+library(mice)
+library(skimr)
+library(vip)
+library(caret)
+library(GGally)
+library(corrplot)
+library(Hmisc)
+```
+
+```{r}
+student = ames_student <- read_csv("ban-502-ames-classification-spring-2021/ames_student.csv")
+```
+
+```{r}
+str(ames_student)
+```
+
+```{r}
+ames_student = ames_student %>% mutate_if(is.character, as_factor)
+```
+
+```{r}
+summary(ames_student)
+```
+
+```{r}
+skim(ames_student)
+```
+
+```{r}
+set.seed(123) 
+student_split = initial_split(ames_student, prop = 0.7, strata = Above_Median) 
+train = training(student_split)
+test = testing(student_split)
+```
+
+
+```{r}
+student_recipe = recipe(Above_Median ~., train) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+rf_model = rand_forest(trees = 100) %>% 
+  set_engine("ranger", importance = "permutation") %>% 
+  set_mode("classification")
+
+student_wflow = 
+  workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(student_recipe)
+
+set.seed(123)
+student_fit = fit(student_wflow, train)
+```
+
+
+```{r}
+student_fit %>% pull_workflow_fit() %>% vip(geom = "point")
+```
+
+
+```{r}
+p1 = ggplot(train, aes(x = Above_Median, y = Gr_Liv_Area)) + geom_boxplot()
+p2 = ggplot(train, aes(x = Above_Median, y = Year_Built)) + geom_boxplot()
+p3 = ggplot(train, aes(x = Garage_Cars, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(train, aes(x = Above_Median, y = First_Flr_SF)) + geom_boxplot()
+grid.arrange(p1,p2,p3,p4)
+
+```
+
+```{r}
+p1 = ggplot(train, aes(x = Above_Median, y = Garage_Area)) + geom_boxplot()
+p2 = ggplot(train, aes(x = Full_Bath, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(train, aes(x = Above_Median, y = Year_Remod_Add)) + geom_boxplot()
+p4 = ggplot(train, aes(x = Above_Median, y = Second_Flr_SF)) + geom_boxplot()
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+ ggplot(train, aes(x = Overall_Qual, fill = Above_Median)) + geom_bar(position = "fill")
+```
+
+```{r}
+ames_cleaned = ames_student %>% dplyr:: select("Gr_Liv_Area", "Year_Built", "Garage_Cars","First_Flr_SF", "Garage_Area","Full_Bath","Year_Remod_Add", "Second_Flr_SF", "Overall_Qual","Above_Median")
+```
+
+```{r}
+summary(ames_cleaned)
+```
+
+```{r}
+describe(ames_cleaned)
+```
+
+```{r}
+ggcorr(ames_cleaned)
+```
+
+
+
+
