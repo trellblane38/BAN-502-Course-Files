@@ -1,0 +1,266 @@
+---
+title: "Module4ClassAssign"
+author: "Gregory Blane"
+date: "2/10/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r FALSE}
+library(tidyverse)
+library(tidymodels)
+library(caret)
+library(rpart.plot)
+library(rpart)
+library(rattle)
+library(RColorBrewer)
+```
+
+```{r}
+parole <- read_csv("parole.csv")
+```
+
+```{r}
+parole = parole %>% mutate(male = as_factor(male)) %>% 
+  mutate(male = fct_recode(male, "No" = "0", "Yes" = "1" )) 
+
+parole = parole %>% mutate(race = as_factor(race)) %>% 
+  mutate(race = fct_recode(race, "White" = "1", "Other" = "2" )) 
+
+parole = parole %>% mutate(state = as_factor(state)) %>% 
+  mutate(state = fct_recode(state, "other_state" = "1", "Kentucky" = "2" ,"Lousiana" = "3", "Virgina" = "4"))
+
+parole = parole %>% mutate(multiple.offenses = as_factor(multiple.offenses)) %>% 
+  mutate(multiple.offenses = fct_recode(multiple.offenses, "No" = "0", "yes" = "1" ))
+
+parole = parole %>% mutate(crime = as_factor(crime)) %>% 
+  mutate(crime = fct_recode(crime, "other-crime" = "1", "larceny" = "2", "drug-related" = "3", "Driving-related" = "4" )) 
+
+parole = parole %>% mutate(violator = as_factor(violator)) %>% 
+  mutate(violator = fct_recode(violator, "No" = "0", "Yes" = "1" ))
+```
+
+```{r}
+set.seed(12345)
+parole_split = initial_split(parole, prob = 0.70, strata = violator)
+train = training(parole_split)
+test = testing(parole_split)
+```
+
+```{r}
+parole_recipe = recipe(violator ~., train)
+
+tree_model = decision_tree() %>% 
+  set_engine("rpart", model = TRUE) %>% 
+  set_mode("classification")
+
+parole_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(parole_recipe)
+
+parole_fit = fit(parole_wflow, train)
+```
+
+```{r}
+
+tree = parole_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+
+fancyRpartPlot(tree)
+```
+
+
+
+#### The state variable evaluates to false, which moves to the multiple.offenses which evaluates to false. The next variable is max.sentence which evaluates to true. The next variable is time.served which evaluates to false. The next variable is age, which evaluates to true. 44% of parolees in Lousiana who served a 5 years in prison, with a sentence of 10 years with multiple offenses are predicted to violate their paroles.
+
+
+```{r}
+parole_fit$fit$fit$fit$cptable
+```
+
+
+#### The xerror value 1.254237 is the most optimal out of all the other variable tested. Yes, The  complexity tree fits the training set.
+
+
+```{r}
+set.seed(123)
+folds = vfold_cv(train, v = 5)
+```
+
+```{r}
+parole_recipe = recipe(violator ~., train) %>%
+  step_dummy(all_nominal(),-all_outcomes())
+
+tree_model = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% 
+  set_mode("classification")
+
+tree_grid = grid_regular(cost_complexity(),
+                          levels = 25) 
+
+parole_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(parole_recipe)
+
+tree_res = 
+  parole_wflow %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
+    )
+
+tree_res
+```
+
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) 
+```
+
+```{r}
+best_tree = tree_res %>%
+  select_best("accuracy")
+
+best_tree
+```
+
+
+#### The best cost complexity value is 0.1. 
+
+
+```{r}
+ final_wf = 
+  parole_wflow %>% 
+  finalize_workflow(best_tree)
+```
+
+```{r}
+final_fit = fit(final_wf, train)
+
+tree = final_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+#fancyRpartPlot(tree, tweak = 1.5)
+```
+
+
+#### Blood.csv dataset 
+
+
+```{r}
+Blood <- read_csv("Blood.csv")
+```
+
+```{r}
+Blood = Blood %>% mutate(DonatedMarch = as_factor(DonatedMarch)) %>% 
+  mutate(DonatedMarch = fct_recode(DonatedMarch, "No" = "0", "Yes" = "1" )) 
+```
+
+```{r}
+set.seed(12345)
+Blood_split = initial_split(Blood, prob = 0.70,strata = DonatedMarch)
+train2 = training(Blood_split)
+test2 = testing(Blood_split)
+```
+
+```{r}
+set.seed(1234)
+folds2 = vfold_cv(train2, v = 5)
+```
+
+```{r}
+Blood_recipe = recipe(DonatedMarch ~., train2) %>%
+  step_dummy(all_nominal(),-all_outcomes())
+
+tree_model2 = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% 
+  set_mode("classification")
+
+tree_grid2 = grid_regular(cost_complexity(),
+                          levels = 25) 
+
+Blood_wflow = 
+  workflow() %>% 
+  add_model(tree_model2) %>% 
+  add_recipe(Blood_recipe)
+
+tree_res2 = 
+  Blood_wflow %>% 
+  tune_grid(
+    resamples = folds2,
+    grid = tree_grid2
+    )
+
+tree_res2
+```
+
+
+```{r}
+tree_res2 %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2)
+```
+
+```{r}
+best_tree2 = tree_res2 %>%
+  select_best("accuracy")
+best_tree2
+```
+
+
+#### The best accuracy value for the blood data set is 0.042
+
+
+```{r}
+final_wf2 = 
+  Blood_wflow %>% 
+  finalize_workflow(best_tree2)
+```
+
+```{r}
+final_fit2 = fit(final_wf2, train2)
+
+tree2 = final_fit2 %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+fancyRpartPlot(tree2, tweak = 1.5)
+```
+
+
+#### Training set
+
+```{r}
+treepred2 = predict(final_fit2, train2, type = "class")
+```
+
+```{r}
+confusionMatrix(treepred2$.pred_class,train2$DonatedMarch,positive="Yes")
+```
+
+#### Testing set
+
+```{r}
+treepred_test = predict(final_fit2, test2, type = "class")
+```
+
+```{r}
+confusionMatrix(treepred_test$.pred_class,test2$DonatedMarch,positive="Yes")
+```
+
+
+#### 80% accuracy for the training set and 75% accuracy for the testing set. Both models demonstrate great performace which out prefroms the naive predictive values 
+ 
