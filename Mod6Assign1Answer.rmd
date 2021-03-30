@@ -1,0 +1,57 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Module 6 - Assignment 1
+## Blane, Greg
+### Lubridate
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readr)
+Appointments <- read_csv("C:/Users/trell/OneDrive - UNC-Wilmington/Programming Analytics/Module6/Appointments.csv")
+```
+
+
+# Working with Dates 
+```{r}
+ Appointments <- Appointments %>%
+  mutate(ReservationYear="2019")
+
+Appointments <- Appointments %>%
+  mutate(ReservationDate = make_date(month=ReservationMonth, day=ReservationDay, year=ReservationYear))
+
+Appointments <- Appointments %>%
+  mutate(CreationDate = make_date(month=CreationMonth, day=CreationDay, year=CreationYear))
+
+Appointments <- Appointments %>%
+  mutate(ReservationSpan = ReservationDate - CreationDate)
+
+
+Appointments <- Appointments %>%
+   mutate(ReservationSpan = as.numeric(ReservationSpan))
+
+cor(Appointments$ReservationSpan, Appointments$Show)
+
+```
+
+### What is the average time between appointment creation and the actual reservation date? 38.53
+
+
+### What was the max time? 207.00
+
+
+### What was the min time? 1.00
+
+
+#### Are ReservationSpan and Show highly correlated? 0.002693853. No, the two virables have no correlation. 
+```{r}
+ggplot(Appointments, aes(Show)) +
+  geom_bar()
+```
+
+
+#### 48000 showed up. 
+
+
