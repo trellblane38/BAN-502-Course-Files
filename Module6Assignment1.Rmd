@@ -1,0 +1,140 @@
+---
+title: "Module 6 Assignment"
+author: "Gregory Blane"
+date: "2/24/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+```
+
+```{r}
+trucks <- read_csv("trucks.csv")
+```
+
+```{r}
+ggplot(trucks, aes(Distance, Speeding)) + geom_point()
+```
+
+
+#### The relationship between distance and speeding seems affect each other because the furter the distance, the likely hood of speeding, and the shorter then distance, there is little to no speeding. Naturally, it seem that the outlier between distances of 100:150 could be natural clustineg to the right. 
+
+
+```{r}
+trucks_recipe = recipe(~ Distance + Speeding, trucks) 
+
+trucks_dummy = trucks_recipe %>% 
+  step_scale(all_numeric()) %>%
+  step_center(all_numeric()) 
+
+trucks_dummy = prep(trucks_dummy, trucks) 
+
+trucks_cleaned = bake(trucks_dummy, trucks) 
+```
+
+```{r}
+set.seed(64)
+clusts = 
+  tibble(k = 2) %>%
+  mutate(
+    kclust = map(k, ~kmeans(trucks_cleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, trucks_cleaned)
+  )
+
+clusts
+```
+
+```{r}
+clusters = 
+  clusts %>%
+  unnest(cols = c(tidied))
+
+assignments = 
+  clusts %>% 
+  unnest(cols = c(augmented))
+
+clusterings = 
+  clusts %>%
+  unnest(cols = c(glanced))
+```
+
+
+#### The cluster looks very identical from the previous visualization with 1 outlier from the red cluster. 
+
+```{r}
+p1 = 
+  ggplot(assignments, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8) + 
+  facet_wrap(~ k)
+p1
+```
+
+```{r}
+set.seed(412)
+clusts2 = 
+  tibble(k = 1:8) %>% 
+  mutate(
+    kclust = map(k, ~kmeans(trucks_cleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, trucks_cleaned)
+  )
+
+clusts2
+```
+
+```{r}
+clusters2 = 
+  clusts2 %>%
+  unnest(cols = c(tidied))
+
+assignments2 = 
+  clusts2 %>% 
+  unnest(cols = c(augmented))
+
+clusterings2 = 
+  clusts2 %>%
+  unnest(cols = c(glanced))
+```
+
+```{r}
+p2 = 
+  ggplot(assignments2, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8) + 
+  facet_wrap(~ k)
+p2
+```
+
+#### 4 is the best value to use. 
+
+
+```{r}
+ggplot(clusterings2, aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point()
+```
+
+```{r}
+set.seed(64)
+clusters3 = kmeans(trucks_cleaned, 4)
+```
+
+```{r}
+trucks = augment(clusters3, trucks)
+str(trucks)
+```
+
+```{r}
+ggplot(trucks, aes(x=Distance,y=Speeding,color=factor(.cluster))) + geom_point() + facet_wrap(~factor(.cluster))
+```
+
